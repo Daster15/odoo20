@@ -1,0 +1,5 @@
+id,name,model_id,group_id/id,operation,domain
+access_m365_outbox_api,m365.outbox api,m365.outbox,ltech_m365_bridge.group_m365_api,cru,
+access_m365_outbox_admin,m365.outbox admin,m365.outbox,base.group_system,crud,
+access_m365_leave_link_api,m365.leave.link api,m365.leave.link,ltech_m365_bridge.group_m365_api,cru,
+access_m365_leave_link_admin,m365.leave.link admin,m365.leave.link,base.group_system,crud,

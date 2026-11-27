@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_m365_api" model="res.groups">
+        <field name="name">M365 Bridge API</field>
+        <field name="comment">Technical user used by the M365 middleware (REST API, Bearer API key).</field>
+    </record>
+</odoo>

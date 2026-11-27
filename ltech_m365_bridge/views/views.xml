@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="m365_outbox_view_tree" model="ir.ui.view">
+        <field name="name">m365.outbox.tree</field>
+        <field name="model">m365.outbox</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-muted="state == 'done'">
+                <field name="id"/>
+                <field name="create_date"/>
+                <field name="model"/>
+                <field name="res_id"/>
+                <field name="event"/>
+                <field name="state"/>
+                <field name="done_date"/>
+            </list>
+        </field>
+    </record>
+    <record id="m365_leave_link_view_tree" model="ir.ui.view">
+        <field name="name">m365.leave.link.tree</field>
+        <field name="model">m365.leave.link</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-danger="state == 'error'">
+                <field name="leave_id"/>
+                <field name="upn"/>
+                <field name="state"/>
+                <field name="error"/>
+                <field name="sync_date"/>
+                <field name="event_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_m365_outbox" model="ir.actions.act_window">
+        <field name="name">M365 Outbox</field>
+        <field name="res_model">m365.outbox</field>
+        <field name="view_mode">list</field>
+    </record>
+    <record id="action_m365_leave_link" model="ir.actions.act_window">
+        <field name="name">M365 Time Off Sync Status</field>
+        <field name="res_model">m365.leave.link</field>
+        <field name="view_mode">list</field>
+    </record>
+    <menuitem id="menu_m365_root" name="Microsoft 365 Bridge" parent="base.menu_custom" sequence="200"/>
+    <menuitem id="menu_m365_outbox" action="action_m365_outbox" parent="menu_m365_root" sequence="10"/>
+    <menuitem id="menu_m365_leave_link" action="action_m365_leave_link" parent="menu_m365_root" sequence="20"/>
+
+    <record id="hr_leave_view_form_m365" model="ir.ui.view">
+        <field name="name">hr.leave.form.m365</field>
+        <field name="model">hr.leave</field>
+        <field name="inherit_id" ref="hr_holidays.hr_leave_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Microsoft 365" groups="hr_holidays.group_hr_holidays_user"
+                       invisible="not m365_sync_state">
+                    <field name="m365_sync_state"/>
+                    <field name="m365_sync_error" invisible="m365_sync_state != 'error'"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_users_form_m365" model="ir.ui.view">
+        <field name="name">res.users.form.m365</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Microsoft 365" name="m365">
+                    <group>
+                        <field name="m365_sync"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
