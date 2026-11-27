@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+<t t-name="ltech_doc_search.DocSearch">
+<div class="o_action o_doc_search d-flex flex-column h-100 bg-view">
+
+    <!-- search bar -->
+    <div class="o_ds_header border-bottom px-4 py-3">
+        <div class="input-group input-group-lg">
+            <span class="input-group-text bg-view">
+                <i t-attf-class="fa {{ this.state.loading ? 'fa-spinner fa-spin' : 'fa-search' }}"/>
+            </span>
+            <input t-ref="this.searchInput" type="search" class="form-control"
+                   placeholder="Search project documents…"
+                   t-att-value="this.state.q" t-on-input="this.onInput" t-on-keydown="this.onKeydown"/>
+            <select class="form-select flex-grow-0 w-auto" t-on-change="this.onSortChange">
+                <option value="score" t-att-selected="this.state.sort === 'score'">Relevance</option>
+                <option value="date" t-att-selected="this.state.sort === 'date'">Newest</option>
+            </select>
+            <button t-attf-class="btn {{ this.upload.open ? 'btn-secondary' : 'btn-primary' }}" t-on-click="this.toggleUpload">
+                <i class="fa fa-upload me-1"/> Add documents
+            </button>
+        </div>
+
+        <!-- upload panel -->
+        <div t-if="this.upload.open" class="o_ds_upload border rounded mt-3 p-3">
+            <div class="d-flex flex-wrap gap-3 mb-3">
+                <div class="o_ds_selector">
+                    <label class="form-label small text-muted mb-1">Project</label>
+                    <RecordSelector resModel="'project.project'" resId="this.upload.projectId"
+                                    update="(id) => this.setProject(id)" placeholder="'Select a project…'"/>
+                </div>
+                <div class="o_ds_selector" t-if="this.upload.projectId">
+                    <label class="form-label small text-muted mb-1">Task (optional)</label>
+                    <RecordSelector t-key="this.upload.projectId" resModel="'project.task'" resId="this.upload.taskId"
+                                    domain="this.taskDomain" update="(id) => this.setTask(id)"
+                                    placeholder="'Project only, no task'"/>
+                </div>
+            </div>
+
+            <div t-attf-class="o_ds_drop rounded text-center p-4 {{ this.upload.dragOver ? 'o_ds_drop_over' : '' }} {{ this.uploadTarget ? '' : 'o_ds_drop_disabled' }}"
+                 t-on-dragover="this.onDragOver" t-on-dragleave="this.onDragLeave" t-on-drop="this.onDrop"
+                 t-on-click="this.openFilePicker">
+                <i class="fa fa-cloud-upload fa-2x mb-2"/>
+                <div t-if="this.uploadTarget">Drop files here or <a href="#" t-on-click.prevent.stop="this.openFilePicker">browse your computer</a></div>
+                <div t-else="">Select a project to add documents</div>
+            </div>
+            <!-- outside the drop zone: a programmatic click must not bubble back into it -->
+            <input t-ref="this.fileInput" type="file" multiple="multiple" class="d-none" t-on-change="this.onFileInput"/>
+
+            <div t-if="this.upload.items.length" class="mt-3">
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                    <span>Uploaded files</span>
+                    <a href="#" t-on-click.prevent="this.clearUploads">clear finished</a>
+                </div>
+                <div t-foreach="this.upload.items" t-as="item" t-key="item.key" class="o_ds_upload_item d-flex align-items-center gap-2 py-1">
+                    <i t-attf-class="fa fa-fw {{ item.status === 'done' ? 'fa-check-circle text-success' : item.status === 'error' ? 'fa-exclamation-circle text-danger' : 'fa-circle-o-notch fa-spin text-muted' }}"/>
+                    <span class="text-truncate flex-grow-1" t-att-title="item.name" t-out="item.name"/>
+                    <small class="text-muted text-nowrap" t-out="this.formatSize(item.size)"/>
+                    <div class="progress o_ds_progress" t-if="item.status === 'uploading' or item.status === 'indexing'">
+                        <div t-attf-class="progress-bar {{ item.status === 'indexing' ? 'progress-bar-striped progress-bar-animated bg-info' : '' }}"
+                             t-attf-style="width: {{ item.progress }}%"/>
+                    </div>
+                    <small t-attf-class="text-nowrap {{ item.status === 'error' ? 'text-danger' : 'text-muted' }}" t-out="this.statusLabel(item)"/>
+                </div>
+            </div>
+        </div>
+        <div class="small text-muted mt-2" t-if="this.state.searched">
+            <b t-out="this.state.total"/> document(s) found
+            <a t-if="this.state.projectIds.length or this.state.fileTypes.length" href="#" class="ms-2"
+               t-on-click.prevent="this.clearFilters">clear filters</a>
+        </div>
+    </div>
+
+    <div class="d-flex flex-grow-1 overflow-hidden">
+
+        <!-- facets -->
+        <aside class="o_ds_facets border-end p-3 overflow-auto" t-if="this.state.searched">
+            <h6 class="text-uppercase small fw-bold text-muted">File type</h6>
+            <div t-foreach="this.state.facets.types" t-as="t" t-key="t.key" class="form-check">
+                <input type="checkbox" class="form-check-input" t-att-id="'ds_ft_' + t.key"
+                       t-att-checked="this.state.fileTypes.includes(t.key)"
+                       t-on-change="() => this.toggle('fileTypes', t.key)"/>
+                <label class="form-check-label d-flex w-100" t-att-for="'ds_ft_' + t.key">
+                    <i t-attf-class="fa fa-fw me-1 {{ (this.TYPES[t.key] or this.TYPES.other).icon }}"/>
+                    <span class="flex-grow-1" t-out="(this.TYPES[t.key] or this.TYPES.other).label"/>
+                    <span class="badge rounded-pill text-bg-light" t-out="t.count"/>
+                </label>
+            </div>
+
+            <h6 class="text-uppercase small fw-bold text-muted mt-4">Project</h6>
+            <div t-foreach="this.state.facets.projects" t-as="p" t-key="p.id" class="form-check">
+                <input type="checkbox" class="form-check-input" t-att-id="'ds_p_' + p.id"
+                       t-att-checked="this.state.projectIds.includes(p.id)"
+                       t-on-change="() => this.toggle('projectIds', p.id)"/>
+                <label class="form-check-label d-flex w-100" t-att-for="'ds_p_' + p.id">
+                    <span class="flex-grow-1 text-truncate" t-att-title="p.name" t-out="p.name"/>
+                    <span class="badge rounded-pill text-bg-light" t-out="p.count"/>
+                </label>
+            </div>
+        </aside>
+
+        <!-- results -->
+        <main class="o_ds_results overflow-auto p-3">
+            <div t-if="!this.state.searched" class="text-center text-muted mt-5">
+                <i class="fa fa-search fa-3x mb-3 opacity-50"/>
+                <p>Type at least 2 characters to search inside your documents.</p>
+            </div>
+            <div t-elif="!this.state.results.length and !this.state.loading" class="text-center text-muted mt-5">
+                No results for “<t t-out="this.state.q"/>”.
+            </div>
+
+            <div t-foreach="this.state.results" t-as="r" t-key="r.id"
+                 t-attf-class="o_ds_card card mb-2 {{ this.state.selected and this.state.selected.id === r.id ? 'o_ds_selected' : '' }}"
+                 t-on-click="() => this.select(r)">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center">
+                        <i t-attf-class="fa fa-lg fa-fw me-2 {{ (this.TYPES[r.file_type] or this.TYPES.other).icon }}"/>
+                        <span class="fw-bold flex-grow-1 text-truncate"><t t-out="r.name_html"/></span>
+                        <span t-if="r.ocr_pages" class="badge rounded-pill text-bg-light border ms-2 o_ds_ocr_badge"
+                              title="Text recognized (OCR) — matches are highlighted on the preview">
+                            <i class="fa fa-eye me-1"/>OCR
+                        </span>
+                        <small class="text-muted ms-2 text-nowrap" t-out="this.formatDate(r.create_date)"/>
+                    </div>
+                    <div class="small mt-1">
+                        <a href="#" class="me-2" t-on-click.prevent.stop="() => this.openProject(r)">
+                            <i class="fa fa-folder-o me-1"/><t t-out="r.project_name"/>
+                        </a>
+                        <a t-if="r.res_model === 'project.task'" href="#" class="text-muted"
+                           t-on-click.prevent.stop="() => this.openRecord(r)">
+                            <i class="fa fa-tasks me-1"/><t t-out="r.record_name"/>
+                        </a>
+                    </div>
+                    <div t-foreach="r.snippets" t-as="s" t-key="s_index" class="o_ds_snippet small mt-1">
+                        … <t t-out="s"/> …
+                    </div>
+                </div>
+            </div>
+
+            <nav t-if="this.pageCount > 1" class="d-flex justify-content-center align-items-center gap-3 my-3">
+                <button class="btn btn-secondary btn-sm" t-att-disabled="this.state.page === 0"
+                        t-on-click="() => this.search(this.state.page - 1)">
+                    <i class="fa fa-chevron-left"/>
+                </button>
+                <span class="small"><t t-out="this.state.page + 1"/> / <t t-out="this.pageCount"/></span>
+                <button class="btn btn-secondary btn-sm" t-att-disabled="this.state.page + 1 >= this.pageCount"
+                        t-on-click="() => this.search(this.state.page + 1)">
+                    <i class="fa fa-chevron-right"/>
+                </button>
+            </nav>
+        </main>
+
+        <!-- preview -->
+        <aside class="o_ds_preview border-start" t-if="this.state.selected">
+            <t t-set="sel" t-value="this.state.selected"/>
+            <div class="d-flex align-items-center border-bottom px-3 py-2 gap-2">
+                <i t-attf-class="fa fa-fw {{ (this.TYPES[sel.file_type] or this.TYPES.other).icon }}"/>
+                <b class="flex-grow-1 text-truncate" t-att-title="sel.name" t-out="sel.name"/>
+                <a class="btn btn-sm btn-light" t-att-href="'/web/content/' + sel.id + '?download=true'" title="Download">
+                    <i class="fa fa-download"/>
+                </a>
+                <button class="btn btn-sm btn-light" title="Open record" t-on-click="() => this.openRecord(sel)">
+                    <i class="fa fa-external-link"/>
+                </button>
+                <button class="btn btn-sm btn-light" title="Close" t-on-click="() => this.state.selected = null">
+                    <i class="fa fa-times"/>
+                </button>
+            </div>
+
+            <div class="d-flex align-items-center border-bottom px-3 py-1 gap-2">
+                <ul class="nav nav-pills nav-sm flex-grow-1">
+                    <li class="nav-item" t-if="this.hasVisualPreview(sel)">
+                        <a href="#" t-attf-class="nav-link py-1 {{ this.state.tab === 'view' ? 'active' : '' }}"
+                           t-on-click.prevent="() => this.setTab('view')">Preview</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" t-attf-class="nav-link py-1 {{ this.state.tab === 'text' ? 'active' : '' }}"
+                           t-on-click.prevent="() => this.setTab('text')">Text</a>
+                    </li>
+                </ul>
+                <t t-if="this.state.matchCount">
+                    <small class="text-muted"><t t-out="this.state.matchIndex + 1"/> / <t t-out="this.state.matchCount"/></small>
+                    <button class="btn btn-sm btn-light" t-on-click="() => this.focusMatch(this.state.matchIndex - 1)">
+                        <i class="fa fa-chevron-up"/>
+                    </button>
+                    <button class="btn btn-sm btn-light" t-on-click="() => this.focusMatch(this.state.matchIndex + 1)">
+                        <i class="fa fa-chevron-down"/>
+                    </button>
+                </t>
+            </div>
+
+            <div class="o_ds_preview_body flex-grow-1 overflow-auto">
+                <t t-if="this.state.tab === 'view'">
+                    <!-- OCR'd image / scanned PDF: page images with highlight boxes -->
+                    <div t-if="sel.ocr_pages" class="o_ds_scan p-3" t-ref="this.previewView">
+                        <div t-if="!this.state.layout" class="text-center text-muted p-5">
+                            <i class="fa fa-spinner fa-spin fa-2x"/>
+                        </div>
+                        <t t-else="">
+                            <div t-if="!this.state.layout.count" class="o_ds_scan_note small text-muted mb-2">
+                                <i class="fa fa-info-circle me-1"/>The search terms were not found in the recognized text of this file.
+                            </div>
+                            <t t-foreach="this.state.layout.pages" t-as="pg" t-key="pg_index">
+                                <div class="o_ds_page" t-att-style="this.pageStyle(pg)">
+                                    <img t-att-src="this.pageSrc(sel, pg_index)" loading="lazy" t-att-alt="sel.name"/>
+                                    <span t-foreach="pg.boxes" t-as="b" t-key="b_index" class="o_ds_box" t-att-style="this.boxStyle(b)"/>
+                                </div>
+                                <div t-if="this.state.layout.pages.length > 1" class="o_ds_page_no small text-muted">
+                                    Page <t t-out="pg_index + 1"/> / <t t-out="this.state.layout.pages.length"/>
+                                </div>
+                            </t>
+                        </t>
+                    </div>
+                    <iframe t-elif="sel.file_type === 'pdf'" t-att-src="this.pdfUrl(sel)"/>
+                    <div t-else="" class="p-3 text-center">
+                        <img class="img-fluid" t-att-src="'/web/image/' + sel.id" t-att-alt="sel.name"/>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div t-if="this.state.previewLoading" class="text-center text-muted p-5">
+                        <i class="fa fa-spinner fa-spin fa-2x"/>
+                    </div>
+                    <div t-else="" t-ref="this.previewText" class="o_ds_text p-3"><t t-out="this.state.previewHtml"/></div>
+                </t>
+            </div>
+        </aside>
+    </div>
+</div>
+</t>
+
+</templates>

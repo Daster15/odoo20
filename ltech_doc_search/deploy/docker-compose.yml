@@ -1,0 +1,11 @@
+services:
+  solr:
+    image: solr:10
+    ports: ["8983:8983"]
+    command: solr-precreate odoo_docs
+    volumes: [solr_data:/var/solr]
+  tika:
+    image: apache/tika:3.4.0.0-full   # 3.x z OCR; 4.x zwraca domyślnie Markdown. Sprawdź tag na Docker Hub
+    ports: ["9998:9998"]
+volumes:
+  solr_data: {}

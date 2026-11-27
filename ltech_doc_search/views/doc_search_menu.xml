@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_doc_search" model="ir.actions.client">
+        <field name="name">Document Search</field>
+        <field name="tag">ltech_doc_search.main</field>
+    </record>
+
+    <menuitem id="menu_doc_search_root"
+              name="Document Search"
+              action="action_doc_search"
+              web_icon="ltech_doc_search,static/description/icon.svg"
+              sequence="15"/>
+</odoo>
